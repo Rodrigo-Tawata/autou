@@ -5,19 +5,16 @@ import joblib
 import os
 from openai import OpenAI
 
-# -------- CONFIGURAÇÕES INICIAIS --------
 st.set_page_config(page_title="Classificador de Emails - AutoU Case", layout="centered")
 st.title("Classificador de Emails — AutoU (MVP)")
 
-# Logo opcional
 if os.path.exists("assets/logo.png"):
     st.image("assets/logo.png", width=150)
 
-# -------- INPUT DO USUÁRIO --------
 uploaded = st.file_uploader("Envie .pdf ou .txt (ou cole o email abaixo)", type=["pdf","txt"])
 text_input = st.text_area("Ou cole o texto do email aqui")
 
-# -------- FUNÇÃO DE EXTRAÇÃO DE TEXTO --------
+# -------- EXTRAÇÃO DE TEXTO --------
 def extract_text_from_file(f):
     if f is None:
         return ""
@@ -34,37 +31,55 @@ def extract_text_from_file(f):
         except:
             return str(f.read())
 
-# -------- FUNÇÃO PARA GERAR RESPOSTA AI --------
+# -------- GERAR RESPOSTA --------
 def gerar_resposta_ai(email_text, categoria):
     """
-    Gera resposta automática usando OpenAI GPT (nova API >=1.0.0),
-    contextualizando ao conteúdo do email.
+    Se a API estiver configurada, gera resposta com GPT.
+    Caso contrário, usa fallback de respostas mockadas/contextuais.
     """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        st.warning("API key não encontrada. Usando respostas mockadas.")
+        return gerar_resposta_mock(email_text, categoria)
+
     try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        if not client.api_key:
-            st.warning("OPENAI_API_KEY não encontrada! Usando template padrão.")
-            return None
+        client = OpenAI(api_key=api_key)
 
         prompt = f"""
-Você é um assistente que responde emails de forma clara, cordial e objetiva.
-Classifique este email como {categoria} e gere uma resposta adequada, levando em consideração o conteúdo real do email.
+        Você é um assistente que responde emails de forma clara, cordial e objetiva.
+        Classifique este email como {categoria} e gere uma resposta adequada, levando em consideração o conteúdo real do email.
 
-Email: "{email_text}"
+        Email: "{email_text}"
         """
-
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role":"user","content":prompt}],
             temperature=0.5,
             max_tokens=200
         )
-
         return response.choices[0].message.content.strip()
 
     except Exception as e:
-        st.error(f"Erro ao gerar resposta AI: {e}")
-        return None
+        st.error(f"Erro ao gerar resposta AI: {e}. Usando fallback mockado.")
+        return gerar_resposta_mock(email_text, categoria)
+
+# -------- MOCKS DE RESPOSTAS --------
+def gerar_resposta_mock(email_text, categoria):
+    email_text_lower = email_text.lower()
+
+    if categoria == "Improdutivo":
+         if "não consegui" in email_text_lower or "atraso" in email_text_lower:
+            return "Olá, entendemos que houve um imprevisto. Avise-nos se precisar de suporte para finalizar sua tarefa." 
+
+    if categoria == "Produtivo":
+        if "não consegui" in email_text_lower or "atraso" in email_text_lower:
+            return "Olá, entendemos que houve um imprevisto. Avise-nos se precisar de suporte para finalizar sua tarefa."
+        elif "finalizei" in email_text_lower or "terminei" in email_text_lower:
+            return "Parabéns pela conclusão! Ficamos felizes em ver seu progresso."
+        else:
+            return "Recebemos sua mensagem e vamos acompanhá-la de perto. Obrigado pelo retorno!"
+    else:
+        return "Olá, obrigado pela mensagem! Se precisar de algo mais específico, por favor nos avise."
 
 # -------- OBTER TEXTO --------
 if uploaded:
@@ -77,9 +92,8 @@ else:
 # -------- PROCESSAR EMAIL --------
 if st.button("Processar") and raw_text.strip():
     st.subheader("Texto extraído")
-    st.write(raw_text[:5000])  # mostra até 5000 caracteres
+    st.write(raw_text[:5000])
 
-    # carregar modelo
     model_path = "models/classifier.joblib"
     if not os.path.exists(model_path):
         st.error("Modelo não encontrado. Rode train.py primeiro.")
@@ -89,25 +103,14 @@ if st.button("Processar") and raw_text.strip():
         probs = pipeline.predict_proba([raw_text])[0]
         conf = max(probs)
 
-        # -------- EXIBIR CATEGORIA --------
+        # Exibir categoria
         if pred == "Produtivo":
             st.success(f"**Categoria:** {pred}  —  Confiança: {conf:.2f}")
         else:
             st.info(f"**Categoria:** {pred}  —  Confiança: {conf:.2f}")
 
-        # -------- GERAR RESPOSTA --------
-        response_ai = gerar_resposta_ai(raw_text, pred)
-        if response_ai:
-            response = response_ai
-        else:
-            # fallback template caso a API não funcione
-            if pred == "Produtivo":
-                if "não consegui" in raw_text.lower():
-                    response = "Olá, entendemos que houve um impedimento. Avise-nos se precisar de ajuda ou suporte."
-                else:
-                    response = "Olá, recebemos sua solicitação e estamos verificando. Retornaremos em breve."
-            else:
-                response = "Olá, obrigado pela mensagem! Se precisar de algo mais específico, nos avise."
+        # Gerar resposta (GPT ou mock)
+        response = gerar_resposta_ai(raw_text, pred)
 
         st.subheader("Resposta sugerida")
         st.text_area("Resposta automática", value=response, height=160)

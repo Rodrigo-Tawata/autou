@@ -7,6 +7,9 @@ from openai import OpenAI
 st.set_page_config(page_title="Classificador de Emails - AutoU Case", layout="centered")
 st.title("Classificador de Emails — AutoU (MVP)")
 
+if os.path.exists("assets/logo.png"):
+    st.image("assets/logo.png", width=150)
+
 uploaded = st.file_uploader("Envie .pdf ou .txt (ou cole o email abaixo)", type=["pdf","txt"])
 text_input = st.text_area("Ou cole o texto do email aqui")
 

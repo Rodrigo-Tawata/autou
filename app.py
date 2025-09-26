@@ -1,9 +1,8 @@
-# app.py
 import streamlit as st
 import pdfplumber
 import joblib
 import os
-import openai
+from openai import OpenAI
 
 st.set_page_config(page_title="Classificador de Emails - AutoU Case", layout="centered")
 st.title("Classificador de Emails — AutoU (MVP)")
@@ -11,7 +10,7 @@ st.title("Classificador de Emails — AutoU (MVP)")
 uploaded = st.file_uploader("Envie .pdf ou .txt (ou cole o email abaixo)", type=["pdf","txt"])
 text_input = st.text_area("Ou cole o texto do email aqui")
 
-# -------- FUNÇÃO DE EXTRAÇÃO DE TEXTO --------
+# -------- EXTRAÇÃO DE TEXTO --------
 def extract_text_from_file(f):
     if f is None:
         return ""
@@ -28,7 +27,7 @@ def extract_text_from_file(f):
         except:
             return str(f.read())
 
-# -------- FUNÇÃO PARA GERAR RESPOSTA AI --------
+# -------- GERAR RESPOSTA COM IA --------
 def gerar_resposta_ai(email_text, categoria):
     """
     Gera resposta automática usando OpenAI GPT, contextualizando ao conteúdo do email.

@@ -33,7 +33,7 @@ def gerar_resposta_ai(email_text, categoria):
     Gera resposta automática usando OpenAI GPT, contextualizando ao conteúdo do email.
     """
     try:
-        openai.api_key = os.getenv("OPENAI_API_KEY")  # Use variável de ambiente
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Use variável de ambiente
         if not openai.api_key:
             st.warning("OPENAI_API_KEY não encontrada! Usando template padrão.")
             return None
@@ -44,7 +44,7 @@ def gerar_resposta_ai(email_text, categoria):
         
         Email: "{email_text}"
         """
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role":"user","content":prompt}],
             temperature=0.5,

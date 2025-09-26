@@ -2,7 +2,7 @@ import streamlit as st
 import pdfplumber
 import joblib
 import os
-from openai import OpenAI
+import openai
 
 st.set_page_config(page_title="Classificador de Emails - AutoU Case", layout="centered")
 st.title("Classificador de Emails — AutoU (MVP)")
@@ -36,8 +36,8 @@ def gerar_resposta_ai(email_text, categoria):
     Gera resposta automática usando OpenAI GPT, contextualizando ao conteúdo do email.
     """
     try:
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Use variável de ambiente
-        if not openai.api_key:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Usa variável de ambiente
+        if not client.api_key:
             st.warning("OPENAI_API_KEY não encontrada! Usando template padrão.")
             return None
 
@@ -49,7 +49,7 @@ def gerar_resposta_ai(email_text, categoria):
         """
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role":"user","content":prompt}],
+            messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=200
         )

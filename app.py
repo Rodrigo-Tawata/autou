@@ -1,19 +1,23 @@
+# app.py
 import streamlit as st
 import pdfplumber
 import joblib
 import os
-import openai
+from openai import OpenAI
 
+# -------- CONFIGURAÇÕES INICIAIS --------
 st.set_page_config(page_title="Classificador de Emails - AutoU Case", layout="centered")
 st.title("Classificador de Emails — AutoU (MVP)")
 
+# Logo opcional
 if os.path.exists("assets/logo.png"):
     st.image("assets/logo.png", width=150)
 
+# -------- INPUT DO USUÁRIO --------
 uploaded = st.file_uploader("Envie .pdf ou .txt (ou cole o email abaixo)", type=["pdf","txt"])
 text_input = st.text_area("Ou cole o texto do email aqui")
 
-# -------- EXTRAÇÃO DE TEXTO --------
+# -------- FUNÇÃO DE EXTRAÇÃO DE TEXTO --------
 def extract_text_from_file(f):
     if f is None:
         return ""
@@ -30,31 +34,34 @@ def extract_text_from_file(f):
         except:
             return str(f.read())
 
-# -------- GERAR RESPOSTA COM IA --------
+# -------- FUNÇÃO PARA GERAR RESPOSTA AI --------
 def gerar_resposta_ai(email_text, categoria):
     """
-    Gera resposta automática usando OpenAI GPT, contextualizando ao conteúdo do email.
+    Gera resposta automática usando OpenAI GPT (nova API >=1.0.0),
+    contextualizando ao conteúdo do email.
     """
     try:
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-        if not openai.api_key:
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        if not client.api_key:
             st.warning("OPENAI_API_KEY não encontrada! Usando template padrão.")
             return None
 
         prompt = f"""
-        Você é um assistente que responde emails de forma clara, cordial e objetiva.
-        Classifique este email como {categoria} e gere uma resposta adequada, levando em consideração o conteúdo real do email.
-        
-        Email: "{email_text}"
+Você é um assistente que responde emails de forma clara, cordial e objetiva.
+Classifique este email como {categoria} e gere uma resposta adequada, levando em consideração o conteúdo real do email.
+
+Email: "{email_text}"
         """
-        response = openai.ChatCompletion.create(
+
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.5,
             max_tokens=200
         )
+
         return response.choices[0].message.content.strip()
-    
+
     except Exception as e:
         st.error(f"Erro ao gerar resposta AI: {e}")
         return None
@@ -70,8 +77,9 @@ else:
 # -------- PROCESSAR EMAIL --------
 if st.button("Processar") and raw_text.strip():
     st.subheader("Texto extraído")
-    st.write(raw_text[:5000])
+    st.write(raw_text[:5000])  # mostra até 5000 caracteres
 
+    # carregar modelo
     model_path = "models/classifier.joblib"
     if not os.path.exists(model_path):
         st.error("Modelo não encontrado. Rode train.py primeiro.")
@@ -81,18 +89,18 @@ if st.button("Processar") and raw_text.strip():
         probs = pipeline.predict_proba([raw_text])[0]
         conf = max(probs)
 
-        # Exibir categoria
+        # -------- EXIBIR CATEGORIA --------
         if pred == "Produtivo":
             st.success(f"**Categoria:** {pred}  —  Confiança: {conf:.2f}")
         else:
             st.info(f"**Categoria:** {pred}  —  Confiança: {conf:.2f}")
 
-        # Gerar resposta
+        # -------- GERAR RESPOSTA --------
         response_ai = gerar_resposta_ai(raw_text, pred)
         if response_ai:
             response = response_ai
         else:
-            # fallback template
+            # fallback template caso a API não funcione
             if pred == "Produtivo":
                 if "não consegui" in raw_text.lower():
                     response = "Olá, entendemos que houve um impedimento. Avise-nos se precisar de ajuda ou suporte."

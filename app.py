@@ -60,7 +60,7 @@ def gerar_resposta_ai(email_text, categoria):
         return response.choices[0].message.content.strip()
 
     except Exception as e:
-        st.error(f"Erro ao gerar resposta AI: {e}. Usando fallback mockado.")
+        st.error(f"Erro ao gerar resposta AI: {e}. Usando respostas sugeridas.")
         return gerar_resposta_mock(email_text, categoria)
 
 # -------- MOCKS DE RESPOSTAS --------
